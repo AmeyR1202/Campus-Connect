@@ -5,14 +5,16 @@ class UserEntity extends Equatable {
   final String username;
   final String email;
   final bool isEmailVerified;
-  final DateTime createdAt;
+  final DateTime? createdAt;
+
+  /// LEARNED: Made this nullable because Firebase's creationTime and Firestore's Timestamp are nullable
 
   const UserEntity({
     required this.userId,
     required this.username,
     required this.email,
     required this.isEmailVerified,
-    required this.createdAt,
+    this.createdAt,
   });
 
   UserEntity copyWith({
