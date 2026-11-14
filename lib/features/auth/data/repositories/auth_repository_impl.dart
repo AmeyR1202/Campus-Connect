@@ -51,6 +51,191 @@ class AuthRepositoryImpl implements AuthRepository {
     });
   }
 
+  @override
+  Stream<UserEntity?> get authStateChanges {
+    return _authDataSource.authStateChanges.map((firebaseUser) {
+      if (firebaseUser == null) return null;
+
+      //fetch full profile from firestore and return it
+      return UserModel.fromFirebaseUser(firebaseUser);
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, bool>> checkEmailVerified() {
+    return _guard(() async {
+      return await _authDataSource.reloadAndCheckEmailVerified();
+    });
+  }
+
+  /// LEARNED: Order of Deletion - Must delete user profile first then firebase auth user
+  /// Why? Once you delete the Firebase Auth user, the user is instantly unauthenticated (request.auth == null).
+  /// If you then try to delete their Firestore document, Firestore Security Rules will throw a PERMISSION_DENIED
+  /// crash because an unauthenticated user cannot delete database records!
+
+  @override
+  Future<Either<AuthFailures, Unit>> deleteAccount() {
+    return _guard(() async {
+      final user = _authDataSource.currentUser;
+      if (user == null) {
+        throw const UserNotFoundFailure('No user currently logged in');
+      }
+      // 1. FIRST DELETE FIRESTORE PROFILE
+      await _userDataSource.deleteUserProfile(user.uid);
+
+      // 2. DELETE THE FIREBASE AUTH ACCOUNT
+      await _authDataSource.deleteAccount();
+
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, UserEntity?>> getCurrentUser() {
+    return _guard(() async {
+      final firebaseUser = _authDataSource.currentUser;
+      if (firebaseUser == null) {
+        return null; // means no active session
+      }
+
+      final userProfile = await _userDataSource.getUserProfile(
+        firebaseUser.uid,
+      );
+      if (userProfile != null) {
+        return userProfile.copyWith(
+          isEmailVerified: firebaseUser.emailVerified,
+        );
+      }
+
+      return UserModel.fromFirebaseUser(
+        firebaseUser,
+      ); // Factory to map from Firebase Auth's User object
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, UserEntity>> loginWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) {
+    return _guard(() async {
+      final credential = await _authDataSource.logInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final firebaseUser = credential.user;
+
+      if (firebaseUser == null) {
+        throw const AuthServerFailure('User not found.');
+      }
+
+      // fetch the full student profile
+      final userProfile = await _userDataSource.getUserProfile(
+        firebaseUser.uid,
+      );
+
+      if (userProfile != null) {
+        // sync the latest verification status from firebase auth
+        return userProfile.copyWith(
+          isEmailVerified: firebaseUser.emailVerified,
+        );
+      }
+
+      // Fallback
+      return UserModel.fromFirebaseUser(firebaseUser);
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, Unit>> logout() {
+    return _guard(() async {
+      await _authDataSource.logOut();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, Unit>> sendEmailVerification() {
+    return _guard(() async {
+      await _authDataSource.sendEmailVerification();
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, Unit>> sendPasswordResetEmail({
+    required String email,
+  }) {
+    return _guard(() async {
+      await _authDataSource.sendPasswordResetEmail(email: email);
+      return unit;
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, UserEntity>> signInWithApple() {
+    return _guard(() async {
+      final credential = await _authDataSource.signInWithApple();
+      final firebaseUser = credential.user;
+
+      if (firebaseUser == null) {
+        throw const AuthServerFailure('Apple sign-in failed.');
+      }
+
+      final existingProfile = await _userDataSource.getUserProfile(
+        firebaseUser.uid,
+      );
+
+      if (existingProfile != null) {
+        return existingProfile;
+      }
+
+      final newStudent = UserModel(
+        userId: firebaseUser.uid,
+        username: firebaseUser.displayName ?? '',
+        email: firebaseUser.email ?? '',
+        isEmailVerified: firebaseUser.emailVerified,
+        createdAt: DateTime.now(),
+      );
+
+      await _userDataSource.createUserProfile(user: newStudent);
+      return newStudent;
+    });
+  }
+
+  @override
+  Future<Either<AuthFailures, UserEntity>> signInWithGoogle() {
+    return _guard(() async {
+      // 1. Authenticate with google via datasource
+      final credential = await _authDataSource.signInWithGoogle();
+      final firebaseUser = credential.user;
+      if (firebaseUser == null) {
+        throw const AuthServerFailure('Google sign-in failed.');
+      }
+
+      // 2. check if user already exist in db
+      final existingProfile = await _userDataSource.getUserProfile(
+        firebaseUser.uid,
+      );
+      if (existingProfile != null) {
+        return existingProfile;
+      }
+
+      // 3. New student: create profile in Firestore from Google info
+      final newStudent = UserModel(
+        userId: firebaseUser.uid,
+        username: firebaseUser.displayName ?? 'username',
+        email: firebaseUser.email ?? '',
+        isEmailVerified: firebaseUser.emailVerified,
+        createdAt: DateTime.now(),
+      );
+
+      await _userDataSource.createUserProfile(user: newStudent);
+      return newStudent;
+    });
+  }
+
   Future<Either<AuthFailures, T>> _guard<T>(Future<T> Function() action) async {
     try {
       final result = await action();
@@ -77,68 +262,5 @@ class AuthRepositoryImpl implements AuthRepository {
       'network-request-failed' => const AuthNetworkFailure(),
       _ => AuthServerFailure(e.message ?? 'Authentication failed.'),
     };
-  }
-
-  @override
-  // TODO: implement authStateChanges
-  Stream<UserEntity?> get authStateChanges => throw UnimplementedError();
-
-  @override
-  Future<Either<AuthFailures, bool>> checkEmailVerified() {
-    // TODO: implement checkEmailVerified
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, Unit>> deleteAccount() {
-    // TODO: implement deleteAccount
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, UserEntity?>> getCurrentUser() {
-    // TODO: implement getCurrentUser
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, UserEntity>> loginWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) {
-    // TODO: implement loginWithEmailAndPassword
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, Unit>> logout() {
-    // TODO: implement logout
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, Unit>> sendEmailVerification() {
-    // TODO: implement sendEmailVerification
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, Unit>> sendPasswordResetEmail({
-    required String email,
-  }) {
-    // TODO: implement sendPasswordResetEmail
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, UserEntity>> signInWithApple() {
-    // TODO: implement signInWithApple
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Either<AuthFailures, UserEntity>> signInWithGoogle() {
-    // TODO: implement signInWithGoogle
-    throw UnimplementedError();
   }
 }
