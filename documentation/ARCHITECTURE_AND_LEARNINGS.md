@@ -7,12 +7,14 @@ A comprehensive record of system architecture, design patterns, engineering prin
 ## Table of Contents
 
 1. [Core Architectural Philosophy](#1-core-architectural-philosophy)
-2. [Clean Architecture & Strict Boundary Rules](#2-clean-architecture--strict-boundary-rules)
-3. [Domain Layer Standards](#3-domain-layer-standards)
-4. [Data Layer Standards & Patterns](#4-data-layer-standards--patterns)
-5. [SOLID & DRY Principles in Practice](#5-solid--dry-principles-in-practice)
-6. [Critical Production Gotchas & Debugging Lessons](#6-critical-production-gotchas--debugging-lessons)
-7. [Store Policies, Security & Regulatory Compliance](#7-store-policies-security--regulatory-compliance)
+2. [Clean Architecture & Strict Boundary Rules](#1-clean-architecture--strict-boundary-rules)
+   - [ADR-001: Single Source of Truth (SSOT) — Why a Unified AuthBloc Wins](#13-adr-001-the-single-source-of-truth-ssot--why-a-unified-authbloc-wins)
+   - [ADR-002: BLoC Dependency Injection — Strict Private Encapsulation vs. Public Initializing Formals](#14-adr-002-bloc-dependency-injection--strict-private-encapsulation--field--param-vs-public-initializing-formals-thisfield)
+3. [Domain Layer Standards](#2-domain-layer-standards)
+4. [Data Layer Standards & Patterns](#3-data-layer-standards--patterns)
+5. [SOLID & DRY Principles in Practice](#4-solid--dry-principles-in-practice)
+6. [Critical Production Gotchas & Debugging Lessons](#5-the-deletion-order-constraint-security-rules)
+7. [Store Policies, Security & Regulatory Compliance](#6-store-policies-security--regulatory-compliance)
 
 ---
 
@@ -131,6 +133,103 @@ A global `AppBloc` that only knows `Authenticated` vs `Unauthenticated`, paired 
 #### The Architectural Decision
 
 Campus Connect adopts **Pattern 1: The Unified `AuthBloc`** as the application's Single Source of Truth. No secondary session stores, no imperative synchronization middleware.
+
+---
+
+### 1.4 ADR-002: BLoC Dependency Injection — Private Initializing Formals (`required this._field`) vs. Initializer Lists
+
+#### Context & The Evolution of Dart Constructor Injection
+
+When injecting dependencies (such as use cases) into a BLoC or Cubit, Dart developers traditionally encountered a dilemma:
+
+1. **Option A: Public `final` fields with Initializing Formals (`required this.field`)**
+   ```dart
+   class AuthBloc extends Bloc<AuthEvent, AuthState> {
+     final LogInUsecase logInUsecase; // ❌ Leaked to outside world
+     AuthBloc({required this.logInUsecase});
+   }
+   ```
+   - *Problem*: Domain use cases leak onto `AuthBloc`'s public API. Anyone can call `context.read<AuthBloc>().logInUsecase(...)` bypassing BLoC events and `bloc_concurrency`.
+
+2. **Option B: Legacy Initializer Lists (`: _field = param`)**
+   ```dart
+   class AuthBloc extends Bloc<AuthEvent, AuthState> {
+     final LogInUsecase _logInUsecase;
+     AuthBloc({required LogInUsecase logInUsecase}) : _logInUsecase = logInUsecase;
+   }
+   ```
+   - *Problem*: Pure boilerplate repetition (~30 lines when managing 10 use cases). Triggers the Dart linter warning: `prefer_initializing_formals`.
+
+3. **The Modern Production Solution (Dart 2.17+): Private Initializing Formals (`required this._field`)**
+   ```dart
+   class AuthBloc extends Bloc<AuthEvent, AuthState> {
+     final LogInUsecase _logInUsecase;
+
+     AuthBloc({
+       required this._logInUsecase, // ✅ 100% private inside, public named arg outside!
+     }) : super(const AuthState.initial());
+   }
+   ```
+
+#### How Modern Dart Resolves the Encapsulation Dilemma
+
+In Dart 2.17+, Dart introduced **Private Initializing Formals for Named Parameters**:
+- Inside the class, `_logInUsecase` remains **100% library-private** (encapsulation preserved, inaccessible to UI widgets or external classes).
+- For callers (e.g. in `injection.dart`), Dart automatically **strips the leading underscore** at the callsite:
+  ```dart
+  // At the callsite (injection.dart):
+  AuthBloc(
+    logInUsecase: sl(), // Caller uses clean public name!
+  );
+  ```
+- **Why `required LogInUsecase _logInUsecase` failed**: If you omit `this.` and write `required LogInUsecase _logInUsecase`, Dart rejects it with *"Named parameters can't start with an underscore."* Dart only permits the leading underscore when paired with `this._` because it knows to generate the public name for the caller.
+
+---
+
+#### Evaluation Metric Comparison
+
+| Evaluation Metric | Option A: Public `final` (`this.field`) | Option B: Verbose List (`: _field = param`) | Modern Dart: Private Formal (`this._field`) |
+| :--- | :--- | :--- | :--- |
+| **Boilerplate / LOC** | Low (1 line) | High (3 mentions/dependency) | **Zero (1 line per dependency)** |
+| **Encapsulation (OOP)** | ❌ Violated | ✅ Preserved | ✅ **100% Preserved (Private `_`)** |
+| **Clean Architecture** | ❌ Leaks Domain to UI | ✅ BLoC isolates Domain | ✅ **BLoC isolates Domain** |
+| **API Surface & Autocomplete**| ❌ Polluted with use cases | ✅ Clean (`add`, `state`, `stream`) | ✅ **Clean (`add`, `state`, `stream`)** |
+| **Dart Linter (`prefer_initializing_formals`)** | ✅ Satisfied | ⚠️ Triggers 10 warnings | ✅ **0 warnings (100% compliant)** |
+
+---
+
+#### Conclusion & Production Standard
+
+Campus Connect adopts **Modern Private Initializing Formals (`required this._field`)**:
+It delivers the **best of both worlds**: strict OOP library encapsulation with zero repetitive boilerplate.
+
+---
+
+#### Interview Guide: The "Why, How, and So What" Framework
+
+When asked in a Senior/Staff Flutter engineering interview to justify your constructor dependency injection style or how you structure BLoCs, use this three-part framework:
+
+##### 1. The Architectural "Why" (Clean Architecture & Information Hiding)
+> *"A BLoC is an **Event-Driven State Machine**. Its public contract with the outside world must strictly consist of two things: inputs (`add(Event)`) and outputs (`state`).*
+>
+> *If we inject use cases as **public fields** (e.g. `final LogInUsecase logInUsecase`), we violate **Information Hiding (OOP)** and leak the Domain layer directly into the Presentation layer. Any developer in the UI could accidentally call `context.read<AuthBloc>().logInUsecase(...)` directly. This completely bypasses the BLoC event pipeline—skipping `AuthLoading` emissions, centralized exception mapping, and `bloc_concurrency` debounce guards like `droppable()`."*
+
+##### 2. The Language "How" (Dart 2.17+ Compiler Mechanism)
+> *"In Dart, named arguments define the public API for the caller, so the language strictly forbids normal named parameters from beginning with an underscore (`required LogInUsecase _logInUsecase` fails to compile).*
+>
+> *Traditionally, this forced developers to write verbose initializer lists (`: _logInUsecase = logInUsecase`), which triggered the `prefer_initializing_formals` linter warning.*
+>
+> *In **Dart 2.17+**, the language introduced **Private Initializing Formals for Named Parameters** (`required this._logInUsecase`). The Dart compiler does something very elegant: it strips the leading underscore at the call site so callers use clean public names (`AuthBloc(logInUsecase: sl())`), while keeping the internal field strictly library-private (`_logInUsecase`)."*
+
+##### 3. The Production "So What?" (Impact & Trade-offs)
+> *"By leveraging `required this._field`, we achieve four concrete production benefits:*
+> 1. *Strict OOP Encapsulation*: UI widgets physically cannot access domain use cases through the BLoC.
+> 2. *Zero Boilerplate*: Completely eliminates dozens of lines of redundant initializer-list assignments.
+> 3. *Clean Autocomplete*: IDE autocomplete on `AuthBloc` shows only `add()`, `state`, `stream`, and `close()`.
+> 4. *100% Linter Compliance*: Fully satisfies Dart’s `prefer_initializing_formals` rule with zero warnings.*
+
+##### Bonus Follow-up: *"Doesn't a BLoC with 10 use cases violate the Single Responsibility Principle?"*
+> *"In Campus Connect, we deliberately chose a **Unified Single Source of Truth (SSOT)** over splitting authentication into multiple disconnected stores (e.g., a separate `SessionCubit`, `LoginBloc`, and `SignUpBloc`). Fragmenting authentication across stores leads to state-synchronization race conditions and split-brain states during backgrounding or token revocation. The 10 use cases represent the atomic capabilities of the authentication bounded context, while `AuthBloc` guarantees there is exactly one authoritative user state for the entire application."*
 
 ---
 
