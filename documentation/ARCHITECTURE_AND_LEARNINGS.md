@@ -10,6 +10,7 @@ A comprehensive record of system architecture, design patterns, engineering prin
 2. [Clean Architecture & Strict Boundary Rules](#1-clean-architecture--strict-boundary-rules)
    - [ADR-001: Single Source of Truth (SSOT) — Why a Unified AuthBloc Wins](#13-adr-001-the-single-source-of-truth-ssot--why-a-unified-authbloc-wins)
    - [ADR-002: BLoC Dependency Injection — Strict Private Encapsulation vs. Public Initializing Formals](#14-adr-002-bloc-dependency-injection--strict-private-encapsulation--field--param-vs-public-initializing-formals-thisfield)
+   - [ADR-003: App Bootloader vs. Feature Boundaries — Why Splash is a Dedicated Feature](#15-adr-003-app-bootloader-vs-feature-boundaries--why-splash-is-a-dedicated-feature-featuressplash)
 3. [Domain Layer Standards](#2-domain-layer-standards)
 4. [Data Layer Standards & Patterns](#3-data-layer-standards--patterns)
 5. [SOLID & DRY Principles in Practice](#4-solid--dry-principles-in-practice)
@@ -230,6 +231,91 @@ When asked in a Senior/Staff Flutter engineering interview to justify your const
 
 ##### Bonus Follow-up: *"Doesn't a BLoC with 10 use cases violate the Single Responsibility Principle?"*
 > *"In Campus Connect, we deliberately chose a **Unified Single Source of Truth (SSOT)** over splitting authentication into multiple disconnected stores (e.g., a separate `SessionCubit`, `LoginBloc`, and `SignUpBloc`). Fragmenting authentication across stores leads to state-synchronization race conditions and split-brain states during backgrounding or token revocation. The 10 use cases represent the atomic capabilities of the authentication bounded context, while `AuthBloc` guarantees there is exactly one authoritative user state for the entire application."*
+
+---
+
+### 1.5 ADR-003: App Bootloader vs. Feature Boundaries — Why Splash is a Dedicated Feature (`features/splash/`)
+
+#### Context & The Dilemma
+
+When organizing a Feature-First Flutter project, developers frequently ask:
+> *"Where should `SplashPage` live? Should it be placed inside `features/auth/presentation/pages/` or as a standalone feature `features/splash/`?"*
+
+A common naive pattern in small prototypes is to place `splash_page.dart` inside `features/auth/` because the immediate concern on startup is checking whether a user is authenticated.
+
+#### Why Placing Splash Inside `features/auth/` is an Architectural Anti-Pattern
+
+1. **Violation of the Single Responsibility Principle (SRP)**:
+   A Splash screen is **not an authentication screen**. A Splash screen is the **Application Bootloader & Lifecycle Gateway**.
+   In production enterprise applications, the startup sequence is responsible for orchestrating multiple cross-cutting app initialization tasks:
+   - **Session Verification**: Checking authentication state (`AuthBloc`).
+   - **App Version & Force-Update**: Calling Firebase Remote Config to verify whether the client version is supported or force an update.
+   - **Maintenance Mode Verification**: Checking if backend services are currently undergoing maintenance.
+   - **Push Notification Registration**: Fetching and registering APNs / FCM tokens.
+   - **Offline Database Hydration & Migrations**: Migrating local SQLite / Hive caches before UI rendering.
+   - **Deep Link & Universal Link Resolution**: Parsing incoming route payloads before landing the user.
+
+2. **Polluting the Authentication Bounded Context**:
+   If `SplashPage` lives inside `features/auth/`:
+   - `features/auth/` becomes artificially responsible for the entire application boot lifecycle.
+   - When maintenance checks, remote config, or local DB migrations are added, `features/auth/` would be forced to import external non-auth services. This corrupts Domain-Driven Design (DDD) bounded contexts and introduces circular dependencies.
+
+3. **Ownership of the Root Route (`/`)**:
+   In `auto_route`, the initial route (`/`) represents the application's root entry point. The root entry point of an entire multi-feature application (Campus Connect) should never be owned by a single domain feature (Auth).
+
+---
+
+#### The Production Standard: `features/splash/` as an Isolated Gateway
+
+Campus Connect isolates the application bootloader into a dedicated feature:
+
+```
+lib/
+├── features/
+│   ├── splash/                               <-- Dedicated Application Bootloader
+│   │   └── presentation/
+│   │       ├── pages/
+│   │       │   └── splash_page.dart          <-- Root Initial Route ('/')
+│   │       └── widgets/
+│   │           └── animated_logo.dart        <-- 2-second Text Reveal Animation
+│   ├── auth/                                 <-- Pure Authentication Bounded Context
+│   │   ├── domain/
+│   │   ├── data/
+│   │   └── presentation/
+│   │       └── pages/
+│   │           ├── onboarding_page.dart
+│   │           ├── login_page.dart
+│   │           ├── signup_page.dart
+│   │           ├── verify_email_page.dart
+│   │           ├── account_ready_page.dart
+│   │           └── forgot_password_page.dart
+│   └── home/                                 <-- Authenticated Dashboard Feature
+│       └── presentation/
+│           └── pages/
+│               └── home_page.dart
+```
+
+#### How `features/splash/` Coordinates with `features/auth/`
+
+- **Global Availability**: `AuthBloc` is provided at the root of the application widget tree (`main.dart`).
+- **Reactive Observation**: `SplashPage` simply observes `context.watch<AuthBloc>().state` or registers a `BlocListener<AuthBloc, AuthState>`.
+- **Parallel Animation & Cold-Start Synchronization**:
+  ```dart
+  // Wait for both the minimum visual animation (2s) AND the backend check to complete
+  await Future.wait([
+    minimumAnimationTimerFuture,
+    authCheckFuture,
+  ]);
+  ```
+- **Type-Safe Routing Delegation**:
+  Once the animation finishes and state is resolved, `SplashPage` uses `AutoRoute` to cleanly transition to the appropriate feature route:
+  - `Authenticated` ➔ `context.router.replace(const HomeRoute());`
+  - `Unverified` ➔ `context.router.replace(const VerifyEmailRoute());`
+  - `Unauthenticated` ➔ `context.router.replace(const OnboardingRoute());`
+
+#### Conclusion & Decision
+
+Campus Connect mandates that the splash screen resides in **`lib/features/splash/`** as an independent bootloader feature, keeping `features/auth/` strictly focused on user authentication journeys.
 
 ---
 
