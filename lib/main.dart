@@ -1,4 +1,5 @@
 import 'package:campus_connect/core/di/injection.dart';
+import 'package:campus_connect/core/routes/app_router.dart';
 import 'package:campus_connect/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:campus_connect/features/auth/presentation/bloc/auth_event.dart';
 import 'package:campus_connect/firebase_options.dart';
@@ -25,16 +26,14 @@ class CampusConnect extends StatelessWidget {
     return BlocProvider(
       create: (context) =>
           sl<AuthBloc>()..add(const AuthEvent.authCheckRequested()),
-      child: MaterialApp(
+      child: MaterialApp.router(
         title: 'Campus Connect',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.white,
           useMaterial3: true,
         ),
-        home: const Scaffold(
-          body: Center(child: Text('Firebase & DI Bootstrapped!')),
-        ),
+        routerConfig: sl<AppRouter>().config(),
       ),
     );
   }

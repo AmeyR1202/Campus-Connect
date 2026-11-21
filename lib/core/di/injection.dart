@@ -1,3 +1,4 @@
+import 'package:campus_connect/core/routes/app_router.dart';
 import 'package:campus_connect/features/auth/data/datasources/firebase_auth_datasource.dart';
 import 'package:campus_connect/features/auth/data/datasources/firestore_user_datasource.dart';
 import 'package:campus_connect/features/auth/data/repositories/auth_repository_impl.dart';
@@ -26,6 +27,7 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
 
+  sl.registerLazySingleton(() => AppRouter()); // Flutter Auto Router
   // 2. DataSources
   sl.registerLazySingleton<FirebaseAuthDataSource>(
     () => FirebaseAuthDataSourceImpl(sl()),

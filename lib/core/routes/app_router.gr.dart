@@ -19,6 +19,10 @@ import 'package:campus_connect/features/auth/presentation/pages/login_page.dart'
     as _i3;
 import 'package:campus_connect/features/auth/presentation/pages/onboarding_page.dart'
     as _i4;
+import 'package:campus_connect/features/auth/presentation/pages/onboarding_community_page.dart'
+    as _i9;
+import 'package:campus_connect/features/auth/presentation/pages/onboarding_schedule_page.dart'
+    as _i10;
 import 'package:campus_connect/features/auth/presentation/pages/signup_page.dart'
     as _i5;
 import 'package:campus_connect/features/auth/presentation/pages/verify_email_page.dart'
@@ -86,6 +90,38 @@ class OnboardingRoute extends _i8.PageRouteInfo<void> {
     name,
     builder: (data) {
       return const _i4.OnboardingPage();
+    },
+  );
+}
+
+/// generated route for
+/// [_i10.OnboardingSchedulePage]
+class OnboardingScheduleRoute extends _i8.PageRouteInfo<void> {
+  const OnboardingScheduleRoute({List<_i8.PageRouteInfo>? children})
+    : super(OnboardingScheduleRoute.name, initialChildren: children);
+
+  static const String name = 'OnboardingScheduleRoute';
+
+  static _i8.PageInfo page = _i8.PageInfo(
+    name,
+    builder: (data) {
+      return const _i10.OnboardingSchedulePage();
+    },
+  );
+}
+
+/// generated route for
+/// [_i9.OnboardingCommunityPage]
+class OnboardingCommunityRoute extends _i8.PageRouteInfo<void> {
+  const OnboardingCommunityRoute({List<_i8.PageRouteInfo>? children})
+    : super(OnboardingCommunityRoute.name, initialChildren: children);
+
+  static const String name = 'OnboardingCommunityRoute';
+
+  static _i8.PageInfo page = _i8.PageInfo(
+    name,
+    builder: (data) {
+      return const _i9.OnboardingCommunityPage();
     },
   );
 }
