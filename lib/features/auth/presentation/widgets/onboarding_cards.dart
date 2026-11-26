@@ -1,6 +1,5 @@
 import 'package:campus_connect/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class Slide1CampusCard extends StatelessWidget {
   const Slide1CampusCard({super.key});
@@ -50,7 +49,7 @@ class Slide1CampusCard extends StatelessWidget {
   }
 }
 
-// Slide 2 Card: "Your Monday" Schedule (Figma SVG)
+// Slide 2 Card: "Your Monday" Schedule
 
 class Slide2ScheduleCard extends StatelessWidget {
   const Slide2ScheduleCard({super.key});
@@ -62,10 +61,162 @@ class Slide2ScheduleCard extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: AspectRatio(
-            aspectRatio: 346 / 304, // Native Figma asset ratio
-            child: SvgPicture.asset(
-              'assets/images/onboarding_timetable_composition.svg',
-              fit: BoxFit.contain,
+            aspectRatio: 346 / 292,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7F7F4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE5E5E0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Header: "Your Monday" + Day selector pills
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Your Monday',
+                        style: TextStyle(
+                          fontFamily: 'InstrumentSerif',
+                          fontSize: 22,
+                          fontStyle: FontStyle.italic,
+                          color: AppColors.pureBlack,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          _buildDayPill('M', isActive: true),
+                          const SizedBox(width: 4),
+                          _buildDayPill('T'),
+                          const SizedBox(width: 4),
+                          _buildDayPill('W'),
+                          const SizedBox(width: 4),
+                          _buildDayPill('T'),
+                          const SizedBox(width: 4),
+                          _buildDayPill('F'),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  // Schedule item 1: Design Thinking
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.pureWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFEAEAEA)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Design Thinking',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.pureBlack,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Hall B402 • Main Building',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F0EE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            '10:00 - 11:30',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.pureBlack,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Schedule item 2: Attendance / Status notice
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.pureWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFEAEAEA)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 16,
+                          color: Color(0xFF10B981),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Attendance is high • 10/12 sessions',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.pureBlack,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -96,6 +247,28 @@ class Slide2ScheduleCard extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  static Widget _buildDayPill(String day, {bool isActive = false}) {
+    return Container(
+      width: 22,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: isActive ? AppColors.pureBlack : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: isActive ? null : Border.all(color: const Color(0xFFD1D1D6)),
+      ),
+      child: Text(
+        day,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: isActive ? AppColors.pureWhite : const Color(0xFF8E8E93),
+        ),
+      ),
     );
   }
 }

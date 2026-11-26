@@ -1,10 +1,15 @@
 import 'package:auto_route/auto_route.dart';
+import 'package:campus_connect/core/routes/app_page_transitions.dart';
 import 'app_router.gr.dart';
 
 @AutoRouterConfig(replaceInRouteName: 'Page,Route')
 class AppRouter extends RootStackRouter {
   @override
-  RouteType get defaultRouteType => RouteType.adaptive();
+  RouteType get defaultRouteType => RouteType.custom(
+        transitionsBuilder: AppPageTransitions.sharedAxis,
+        durationInMilliseconds: 350,
+        reverseDurationInMilliseconds: 300,
+      );
 
   @override
   List<AutoRoute> get routes => [
