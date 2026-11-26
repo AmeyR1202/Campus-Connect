@@ -1,50 +1,73 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:campus_connect/core/routes/app_router.gr.dart';
 import 'package:campus_connect/core/theme/app_colors.dart';
-import 'package:campus_connect/core/utils/validators.dart';
 import 'package:campus_connect/core/widgets/app_back_button.dart';
 import 'package:campus_connect/core/widgets/app_button.dart';
 import 'package:campus_connect/core/widgets/app_text_field.dart';
 import 'package:campus_connect/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:campus_connect/features/auth/presentation/bloc/auth_event.dart';
+import 'package:campus_connect/features/auth/presentation/cubit/login_form_cubit.dart';
+import 'package:campus_connect/features/auth/presentation/cubit/login_form_state.dart';
 import 'package:campus_connect/features/auth/presentation/widgets/social_sign_in_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 @RoutePage()
-class LoginPage extends StatefulWidget {
+class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => LoginFormCubit(),
+      child: const _LoginView(),
+    );
+  }
 }
 
-class _LoginPageState extends State<LoginPage> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _emailController;
-  late final TextEditingController _passwordController;
+class _LoginView extends StatefulWidget {
+  const _LoginView();
+
+  @override
+  State<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<_LoginView> {
+  late final FocusNode _emailFocusNode;
+  late final FocusNode _passwordFocusNode;
 
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController();
-    _passwordController = TextEditingController();
+    _emailFocusNode = FocusNode()
+      ..addListener(() {
+        if (!_emailFocusNode.hasFocus) {
+          context.read<LoginFormCubit>().emailUnfocused();
+        }
+      });
+    _passwordFocusNode = FocusNode()
+      ..addListener(() {
+        if (!_passwordFocusNode.hasFocus) {
+          context.read<LoginFormCubit>().passwordUnfocused();
+        }
+      });
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
   }
 
   void _handleLogin() {
-    if (_formKey.currentState?.validate() ?? false) {
+    final cubit = context.read<LoginFormCubit>();
+    if (cubit.validate()) {
       context.read<AuthBloc>().add(
         LoginSubmitted(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
+          email: cubit.state.email.value.trim(),
+          password: cubit.state.password.value,
         ),
       );
     }
@@ -59,7 +82,7 @@ class _LoginPageState extends State<LoginPage> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           // Ensures you never get a bottom RenderFlex overflow when keyboard appears.
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),  
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -176,31 +199,35 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 24),
 
                 // 5. Centralized Modular Credentials Form
-                Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppTextField(
-                        label: 'Email address',
-                        hintText: 'you@example.com',
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        validator: AppValidators.email,
-                      ),
-                      const SizedBox(height: 20),
-                      AppTextField(
-                        label: 'Password',
-                        hintText: '•••••••••',
-                        controller: _passwordController,
-                        isPassword: true,
-                        textInputAction: TextInputAction.done,
-                        validator: AppValidators.password,
-                        onFieldSubmitted: (_) => _handleLogin(),
-                      ),
-                    ],
-                  ),
+                BlocBuilder<LoginFormCubit, LoginFormState>(
+                  builder: (context, state) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppTextField(
+                          label: 'Email address',
+                          hintText: 'you@example.com',
+                          focusNode: _emailFocusNode,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          errorText: state.email.errorMessage,
+                          onChanged: context.read<LoginFormCubit>().emailChanged,
+                        ),
+                        const SizedBox(height: 20),
+                        AppTextField(
+                          label: 'Password',
+                          hintText: '•••••••••',
+                          focusNode: _passwordFocusNode,
+                          isPassword: true,
+                          textInputAction: TextInputAction.done,
+                          errorText: state.password.errorMessage,
+                          onChanged:
+                              context.read<LoginFormCubit>().passwordChanged,
+                          onFieldSubmitted: (_) => _handleLogin(),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
 

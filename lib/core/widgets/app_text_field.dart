@@ -13,6 +13,9 @@ class AppTextField extends StatefulWidget {
   final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onFieldSubmitted;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final FocusNode? focusNode;
 
   const AppTextField({
     super.key,
@@ -24,6 +27,9 @@ class AppTextField extends StatefulWidget {
     this.textInputAction,
     this.validator,
     this.onFieldSubmitted,
+    this.errorText,
+    this.focusNode,
+    this.onChanged,
   });
 
   @override
@@ -60,10 +66,12 @@ class _AppTextFieldState extends State<AppTextField> {
         // Underline Input Field
         TextFormField(
           controller: widget.controller,
+          focusNode: widget.focusNode,
           obscureText: widget.isPassword && _obscured,
           keyboardType: widget.keyboardType,
           textInputAction: widget.textInputAction,
           validator: widget.validator,
+          onChanged: widget.onChanged,
           onFieldSubmitted: widget.onFieldSubmitted,
           style: const TextStyle(
             fontFamily: 'Inter',
@@ -72,6 +80,7 @@ class _AppTextFieldState extends State<AppTextField> {
           ),
           decoration: InputDecoration(
             hintText: widget.hintText,
+            errorText: widget.errorText,
             hintStyle: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 16,
@@ -80,16 +89,10 @@ class _AppTextFieldState extends State<AppTextField> {
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(vertical: 10),
             enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Color(0xFFE5E5E0),
-                width: 1.0,
-              ),
+              borderSide: BorderSide(color: Color(0xFFE5E5E0), width: 1.0),
             ),
             focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Color(0xFF151515),
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: Color(0xFF151515), width: 1.5),
             ),
             errorStyle: const TextStyle(
               fontFamily: 'Inter',
@@ -98,16 +101,10 @@ class _AppTextFieldState extends State<AppTextField> {
               color: Colors.redAccent,
             ),
             errorBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Colors.redAccent,
-                width: 1.0,
-              ),
+              borderSide: BorderSide(color: Colors.redAccent, width: 1.0),
             ),
             focusedErrorBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: Colors.redAccent,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: Colors.redAccent, width: 1.5),
             ),
             suffixIcon: widget.isPassword
                 ? IconButton(
@@ -137,4 +134,3 @@ class _AppTextFieldState extends State<AppTextField> {
     );
   }
 }
-

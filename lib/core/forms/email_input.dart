@@ -3,7 +3,7 @@ import 'package:formz/formz.dart';
 enum InvalidEmail { empty, invalid }
 
 class EmailInput extends FormzInput<String, InvalidEmail> {
-  const EmailInput.pure() : super.pure('');
+  const EmailInput.pure([super.value = '']) : super.pure();
   const EmailInput.dirty([super.value = '']) : super.dirty();
 
   static final RegExp _emailRegExp = RegExp(

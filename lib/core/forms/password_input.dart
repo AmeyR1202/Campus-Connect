@@ -3,7 +3,7 @@ import 'package:formz/formz.dart';
 enum InvalidPassword { empty, tooShort }
 
 class PasswordInput extends FormzInput<String, InvalidPassword> {
-  const PasswordInput.empty() : super.pure('');
+  const PasswordInput.pure([super.value = '']) : super.pure();
   const PasswordInput.dirty([super.value = '']) : super.dirty();
 
   @override
