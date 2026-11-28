@@ -36,8 +36,6 @@ class FirestoreUserDatasourceImpl implements FirestoreUserDatasource {
       return null;
     }
     return UserModel.fromFirestore(doc.data()!, doc.id);
-
-    /// LEARNED: We use data(): Contains all the data of this document snapshot.
   }
 
   @override

@@ -17,20 +17,24 @@ import 'package:campus_connect/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get_it/get_it.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 final sl = GetIt.instance;
 
 Future<void> initDependencies() async {
   /// 01. FEATURE AUTH
 
-  /// 1. External dependencies (Firebase SDKs)
+  /// 1. External dependencies (Firebase & Social Auth SDKs)
+  await GoogleSignIn.instance.initialize();
+
   sl.registerLazySingleton(() => FirebaseAuth.instance);
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton(() => GoogleSignIn.instance);
 
   sl.registerLazySingleton(() => AppRouter()); // Flutter Auto Router
   // 2. DataSources
   sl.registerLazySingleton<FirebaseAuthDataSource>(
-    () => FirebaseAuthDataSourceImpl(sl()),
+    () => FirebaseAuthDataSourceImpl(sl(), sl()),
   );
 
   sl.registerLazySingleton<FirestoreUserDatasource>(

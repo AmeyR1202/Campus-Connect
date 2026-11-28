@@ -47,12 +47,7 @@ class _SplashPageState extends State<SplashPage>
     state.whenOrNull(
       unauthenticated: () => context.router.replace(const OnboardingRoute()),
       unverified: (user) => context.router.replace(const VerifyEmailRoute()),
-      authenticated: (user) {
-        // If user is already authenticated, can route to onboarding/home
-        context.router.replace(
-          const OnboardingRoute(),
-        ); // TODO: Fix this onboardinbg page navigation
-      },
+      authenticated: (user) => context.router.replace(const HomeRoute()),
       failure: (_) => context.router.replace(const OnboardingRoute()),
     );
   }

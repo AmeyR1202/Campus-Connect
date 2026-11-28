@@ -15,6 +15,7 @@ A comprehensive record of system architecture, design patterns, engineering prin
 4. [Data Layer Standards & Patterns](#3-data-layer-standards--patterns)
 5. [SOLID & DRY Principles in Practice](#4-solid--dry-principles-in-practice)
 6. [Critical Production Gotchas & Debugging Lessons](#5-the-deletion-order-constraint-security-rules)
+   - [BUG-01: Unguarded `authStateChanges` Stream Error Freezing Splash Screen](#52-bug-01-unguarded-authstatechanges-stream-error-freezing-splash-screen)
 7. [Store Policies, Security & Regulatory Compliance](#6-store-policies-security--regulatory-compliance)
 
 ---
@@ -482,6 +483,33 @@ When deleting an account:
 2. **Step 2**: Delete Firebase Auth record (`_authDataSource.deleteAccount()`).
 
 **Why?** If you delete the Firebase Auth user first, the client immediately becomes unauthenticated (`request.auth == null`). Subsequent Firestore delete requests will fail with `PERMISSION_DENIED`!
+
+---
+
+### 5.2 BUG-01: Unguarded `authStateChanges` Stream Error Freezing Splash Screen
+
+- **Symptom**: After signing up and restarting the app, the app froze indefinitely on the black `SplashPage` instead of navigating to `VerifyEmailPage`.
+- **Plain-English Cause**: Every one-time `Future` method in `AuthRepositoryImpl` had a `try/catch` safety net (`_guard`), **but `authStateChanges` is a live `Stream`**, so it wasn't wrapped in `_guard`. When `asyncMap` tried to fetch the user profile from Firestore (`_userDataSource.getUserProfile(uid)`) and Firestore threw an error, the unhandled stream error jammed the stream — `AuthBloc` never received `AuthStateChanged(user)` and `SplashPage` stayed stuck waiting in `AuthState.loading()`.
+- **Fix** (`lib/features/auth/data/repositories/auth_repository_impl.dart`):
+  Wrap the Firestore lookup inside `asyncMap` with `try/catch` so any Firestore read/network error safely falls back to `UserModel.fromFirebaseUser(firebaseUser)` instead of breaking the stream:
+  ```dart
+  @override
+  Stream<UserEntity?> get authStateChanges {
+    return _authDataSource.authStateChanges.asyncMap((firebaseUser) async {
+      if (firebaseUser == null) return null;
+      try {
+        final profile = await _userDataSource.getUserProfile(firebaseUser.uid);
+        if (profile != null) {
+          return profile.copyWith(isEmailVerified: firebaseUser.emailVerified);
+        }
+      } catch (_) {
+        // Fall back to FirebaseAuth user if Firestore read fails/times out
+      }
+      return UserModel.fromFirebaseUser(firebaseUser);
+    });
+  }
+  ```
+- **Lesson**: Always guard async operations inside `Stream.asyncMap(...)` (or attach `onError` on stream subscriptions) — `_guard` on `Future` methods does not protect `Stream` pipelines. Also verify Firestore Security Rules allow authenticated reads on `users/{userId}`.
 
 ## 6. Store Policies, Security & Regulatory Compliance
 

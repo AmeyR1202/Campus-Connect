@@ -18,7 +18,7 @@ class EmailAlreadyInUseFailure extends AuthFailures {
 
 class WeakPasswordFailure extends AuthFailures {
   const WeakPasswordFailure([
-    super.message = 'Password must be at least 8 characters.',
+    super.message = 'Password must be at least 6 characters.',
   ]);
 }
 

@@ -53,10 +53,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Stream<UserEntity?> get authStateChanges {
-    return _authDataSource.authStateChanges.map((firebaseUser) {
+    return _authDataSource.authStateChanges.asyncMap((firebaseUser) async {
       if (firebaseUser == null) return null;
-
-      //fetch full profile from firestore and return it
+      try {
+        final profile = await _userDataSource.getUserProfile(firebaseUser.uid);
+        return _resolveUser(profile, firebaseUser);
+      } catch (_) {
+        // Fall back to FirebaseAuth user if Firestore read fails/times out
+      }
       return UserModel.fromFirebaseUser(firebaseUser);
     });
   }
@@ -101,15 +105,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final userProfile = await _userDataSource.getUserProfile(
         firebaseUser.uid,
       );
-      if (userProfile != null) {
-        return userProfile.copyWith(
-          isEmailVerified: firebaseUser.emailVerified,
-        );
-      }
-
-      return UserModel.fromFirebaseUser(
-        firebaseUser,
-      ); // Factory to map from Firebase Auth's User object
+      return _resolveUser(userProfile, firebaseUser);
     });
   }
 
@@ -135,16 +131,20 @@ class AuthRepositoryImpl implements AuthRepository {
         firebaseUser.uid,
       );
 
-      if (userProfile != null) {
-        // sync the latest verification status from firebase auth
-        return userProfile.copyWith(
-          isEmailVerified: firebaseUser.emailVerified,
-        );
-      }
-
-      // Fallback
-      return UserModel.fromFirebaseUser(firebaseUser);
+      return _resolveUser(userProfile, firebaseUser);
     });
+  }
+
+  UserEntity _resolveUser(UserModel? profile, User firebaseUser) {
+    if (profile != null) {
+      return profile.copyWith(
+        email: profile.email.isNotEmpty
+            ? profile.email
+            : (firebaseUser.email ?? ''),
+        isEmailVerified: firebaseUser.emailVerified,
+      );
+    }
+    return UserModel.fromFirebaseUser(firebaseUser);
   }
 
   @override
@@ -177,63 +177,53 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<AuthFailures, UserEntity>> signInWithApple() {
     return _guard(() async {
       final credential = await _authDataSource.signInWithApple();
-      final firebaseUser = credential.user;
-
-      if (firebaseUser == null) {
-        throw const AuthServerFailure('Apple sign-in failed.');
-      }
-
-      final existingProfile = await _userDataSource.getUserProfile(
-        firebaseUser.uid,
+      return _handleSocialCredential(
+        credential,
+        fallbackError: 'Apple sign-in failed.',
       );
-
-      if (existingProfile != null) {
-        return existingProfile;
-      }
-
-      final newStudent = UserModel(
-        userId: firebaseUser.uid,
-        username: firebaseUser.displayName ?? '',
-        email: firebaseUser.email ?? '',
-        isEmailVerified: firebaseUser.emailVerified,
-        createdAt: DateTime.now(),
-      );
-
-      await _userDataSource.createUserProfile(user: newStudent);
-      return newStudent;
     });
   }
 
   @override
   Future<Either<AuthFailures, UserEntity>> signInWithGoogle() {
     return _guard(() async {
-      // 1. Authenticate with google via datasource
       final credential = await _authDataSource.signInWithGoogle();
-      final firebaseUser = credential.user;
-      if (firebaseUser == null) {
-        throw const AuthServerFailure('Google sign-in failed.');
-      }
+      return _handleSocialCredential(
+        credential,
+        fallbackError: 'Google sign-in failed.',
+      );
+    });
+  }
 
-      // 2. check if user already exist in db
+  Future<UserEntity> _handleSocialCredential(
+    UserCredential credential, {
+    required String fallbackError,
+  }) async {
+    final firebaseUser = credential.user;
+    if (firebaseUser == null) {
+      throw AuthServerFailure(fallbackError);
+    }
+
+    final isNewUser = credential.additionalUserInfo?.isNewUser ?? false;
+    if (!isNewUser) {
       final existingProfile = await _userDataSource.getUserProfile(
         firebaseUser.uid,
       );
       if (existingProfile != null) {
-        return existingProfile;
+        return _resolveUser(existingProfile, firebaseUser);
       }
+    }
 
-      // 3. New student: create profile in Firestore from Google info
-      final newStudent = UserModel(
-        userId: firebaseUser.uid,
-        username: firebaseUser.displayName ?? 'username',
-        email: firebaseUser.email ?? '',
-        isEmailVerified: firebaseUser.emailVerified,
-        createdAt: DateTime.now(),
-      );
+    final newStudent = UserModel(
+      userId: firebaseUser.uid,
+      username: firebaseUser.displayName ?? '',
+      email: firebaseUser.email ?? '',
+      isEmailVerified: firebaseUser.emailVerified,
+      createdAt: DateTime.now(),
+    );
 
-      await _userDataSource.createUserProfile(user: newStudent);
-      return newStudent;
-    });
+    await _userDataSource.createUserProfile(user: newStudent);
+    return newStudent;
   }
 
   Future<Either<AuthFailures, T>> _guard<T>(Future<T> Function() action) async {

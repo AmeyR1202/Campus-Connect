@@ -207,7 +207,7 @@ return $default(_that.email,_that.password);case _:
 
 
 class _LoginFormState extends LoginFormState {
-  const _LoginFormState({this.email = const EmailInput.pure(), this.password = const PasswordInput.empty()}): super._();
+  const _LoginFormState({this.email = const EmailInput.pure(), this.password = const PasswordInput.pure()}): super._();
   
 
 @override@JsonKey() final  EmailInput email;

@@ -56,13 +56,14 @@ class DefaultFirebaseOptions {
     projectId: 'campusconnect-1202',
     storageBucket: 'campusconnect-1202.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyA4uvv_5Ov16HgV089P38Y4Vw3bXRUjsig',
     appId: '1:321194185487:ios:14648914d6b9d8caace47a',
     messagingSenderId: '321194185487',
     projectId: 'campusconnect-1202',
     storageBucket: 'campusconnect-1202.firebasestorage.app',
+    androidClientId: '321194185487-u5p28ualubro4nloid806i0gggcnmgco.apps.googleusercontent.com',
+    iosClientId: '321194185487-0cadcp2sg8b6kd22kr3njpbrimukj336.apps.googleusercontent.com',
     iosBundleId: 'com.example.campusConnect',
   );
 }

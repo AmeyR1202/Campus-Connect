@@ -142,7 +142,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SendEmailVerificationSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    await _sendEmailVerificationUsecase();
+    final result = await _sendEmailVerificationUsecase();
+    result.fold(
+      (failure) => emit(AuthState.failure(failure)),
+      (_) {},
+    );
   }
 
   Future<void> _onCheckEmailVerifiedSubmitted(
@@ -166,7 +170,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     SendPasswordResetSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    await _sendPasswordResetEmailUsecase(email: event.email);
+    emit(const AuthState.loading());
+    final result = await _sendPasswordResetEmailUsecase(email: event.email);
+    result.fold(
+      (failure) => emit(AuthState.failure(failure)),
+      (_) => emit(
+        const AuthState.unauthenticated(),
+      ), // Or a `passwordResetSent` state for UI confirmation
+    );
   }
 
   Future<void> _onLogoutSubmitted(

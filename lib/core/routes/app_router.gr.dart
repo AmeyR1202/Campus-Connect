@@ -29,6 +29,8 @@ import 'package:campus_connect/features/auth/presentation/pages/verify_email_pag
     as _i9;
 import 'package:campus_connect/features/splash/presentation/pages/splash_page.dart'
     as _i8;
+import 'package:campus_connect/features/home/presentation/pages/home_page.dart'
+    as _i11;
 
 /// generated route for
 /// [_i1.AccountReadyPage]
@@ -58,6 +60,22 @@ class ForgotPasswordRoute extends _i10.PageRouteInfo<void> {
     name,
     builder: (data) {
       return const _i2.ForgotPasswordPage();
+    },
+  );
+}
+
+/// generated route for
+/// [_i11.HomePage]
+class HomeRoute extends _i10.PageRouteInfo<void> {
+  const HomeRoute({List<_i10.PageRouteInfo>? children})
+    : super(HomeRoute.name, initialChildren: children);
+
+  static const String name = 'HomeRoute';
+
+  static _i10.PageInfo page = _i10.PageInfo(
+    name,
+    builder: (data) {
+      return const _i11.HomePage();
     },
   );
 }
